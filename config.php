@@ -1,5 +1,6 @@
 <?php
 // XGChat 配置文件
+date_default_timezone_set('Asia/Shanghai');
 define('DB_PATH', __DIR__ . '/data/chat.db');
 define('UPLOAD_DIR', __DIR__ . '/uploads/');
 define('UPLOAD_URL', '/uploads/');

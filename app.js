@@ -173,7 +173,9 @@
         if(currentTab!=='chats')return;
         const data=await api('contacts',{filter:currentFilter,search:searchInput.value.trim()});
         if(!data?.contacts)return;
-        if(JSON.stringify(contacts)!==JSON.stringify(data.contacts)){contacts=data.contacts;renderContacts();}
+        // 检查 DOM 是否还有加载指示器，或者数据有变化
+        const hasLoading=contactsList.querySelector('.contacts-loading')!==null;
+        if(JSON.stringify(contacts)!==JSON.stringify(data.contacts)||hasLoading){contacts=data.contacts;renderContacts();}
     }
     function renderContacts(){
         if(!contacts.length){contactsList.innerHTML='<div class="contacts-empty">暂无对话<br><small>点击右上角 + 开始新对话</small></div>';return;}
@@ -304,7 +306,7 @@
         // Show immediately in DOM
         try{
             const now=new Date();
-            const timeStr=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+            const timeStr=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
             const w=document.createElement('div');
             w.className='message-wrapper sent';
             w.innerHTML='<div class="message-bubble">'+esc(text)+'</div><span class="message-time">'+timeStr+' ✓✓</span>';
@@ -322,6 +324,11 @@
         // Send to server (non-blocking)
         apiPost('send',{conversation_id:activeContactId,content:text}).then(data=>{
             if(!data||data.error){console.error('Send failed:',data);}
+            // 用服务器返回的时间更新显示，确保时间一致
+            else if(data.message&&data.message.time){
+                const lastSent=messagesArea.querySelector('.message-wrapper.sent:last-of-type .message-time');
+                if(lastSent)lastSent.textContent=data.message.time+' ✓✓';
+            }
         }).catch(e=>{console.error('Send error:',e);});
     }
     function updatePreview(id,msg,time){
@@ -513,7 +520,17 @@
                 const d=await api('messages',{conversation_id:activeContactId});
                 if(d?.messages){
                     const domCount=messagesArea.querySelectorAll('.message-wrapper').length;
-                    if(d.messages.length!==domCount)loadMessages(activeContactId);
+                    // 只在有新消息时才重新渲染，避免时间跳变
+                    if(d.messages.length>domCount)loadMessages(activeContactId);
+                    // 如果数量相等但服务器时间更准确，静默更新最后一条消息的时间
+                    else if(d.messages.length===domCount&&d.messages.length>0){
+                        const lastMsg=d.messages[d.messages.length-1];
+                        const lastDom=messagesArea.querySelector('.message-wrapper:last-of-type .message-time');
+                        if(lastDom&&lastMsg){
+                            const serverTime=lastMsg.time+(lastMsg.from===window.__CHAT_DATA__.currentUserId?' ✓✓':'');
+                            if(lastDom.textContent!==serverTime)lastDom.textContent=serverTime;
+                        }
+                    }
                 }
             }
         },POLL_INTERVAL);}

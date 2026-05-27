@@ -174,20 +174,21 @@ switch ($action) {
 
         $messages = [];
         foreach ($rows as $row) {
-            $date = date('Y-m-d', strtotime($row['created_at']));
+            $ts = utcToTimestamp($row['created_at']);
+            $date = date('Y-m-d', $ts);
             $today = date('Y-m-d');
             $yesterday = date('Y-m-d', strtotime('-1 day'));
 
             if ($date === $today) $dateLabel = 'Today';
             elseif ($date === $yesterday) $dateLabel = 'Yesterday';
-            else $dateLabel = date('n月j日', strtotime($row['created_at']));
+            else $dateLabel = date('n月j日', $ts);
 
             $msg = [
                 'id' => $row['id'],
                 'from' => (int)$row['sender_id'],
                 'text' => $row['content'],
                 'type' => $row['type'] ?? 'text',
-                'time' => date('H:i', strtotime($row['created_at'])),
+                'time' => date('H:i', $ts),
                 'date' => $dateLabel,
                 'created_at' => $row['created_at'],
                 'sender_name' => $row['sender_name'] ?? '',
@@ -1051,8 +1052,13 @@ switch ($action) {
 // ==========================================
 // 辅助函数
 // ==========================================
+// UTC时间转本地时间戳（SQLite CURRENT_TIMESTAMP 存的是UTC）
+function utcToTimestamp(string $utcDatetime): int {
+    return (new DateTime($utcDatetime, new DateTimeZone('UTC')))->getTimestamp();
+}
+
 function formatTime(string $datetime): string {
-    $ts = strtotime($datetime);
+    $ts = utcToTimestamp($datetime);
     $now = time();
     $diff = $now - $ts;
 
